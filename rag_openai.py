@@ -1,36 +1,30 @@
 
 
+import os
+import sqlite3
+import requests
+import json
+import re
+from contextlib import contextmanager
+from deep_translator import GoogleTranslator
 import chromadb
 from chromadb.utils import embedding_functions
-import json
-import os
-import requests
-import re
-from deep_translator import GoogleTranslator
 
-from contextlib import contextmanager
-import sqlite3
-
-@contextmanager
-def get_db():
-    conn = sqlite3.connect('medibook.db', check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-OPENROUTER_API_KEY = "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"
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-path = r'D:\cli\data'
+from config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, CHROMA_PATH, DATABASE_PATH
 from database import get_db, init_database
-from config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL
-
-
-import chromadb
-from config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, CHROMA_PATH
 
 path = CHROMA_PATH
+
+print("🔌 Connecting to ChromaDB...")
+chroma_client = chromadb.PersistentClient(path=os.path.join(path, "medical_vector_db"))  
+
+ef = embedding_functions.DefaultEmbeddingFunction()
+
+collection = chroma_client.get_or_create_collection(
+    name="medical_assistant", 
+    embedding_function=ef
+)
+print("✅ Connected successfully to ChromaDB!")
 
 
 translator = GoogleTranslator()
@@ -530,9 +524,9 @@ def get_urgency_english(score):
 
 
 print("🔌 Connecting to ChromaDB...")
-chroma_client = chromadb.PersistentClient(path=os.path.join(path, "medical_vector_db"))  # غيرنا الاسم
+chroma_client = chromadb.PersistentClient(path=os.path.join(path, "medical_vector_db"))  
 ef = embedding_functions.DefaultEmbeddingFunction()
-collection = chroma_client.get_collection(name="medical_assistant", embedding_function=ef)  # غيرنا هنا
+collection = chroma_client.get_collection(name="medical_assistant", embedding_function=ef)  
 print("✅ Connected successfully!")
 
 class OpenRouterClient:

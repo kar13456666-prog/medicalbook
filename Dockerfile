@@ -1,5 +1,4 @@
-# Use the official Python image
-FROM python:3.10-slim
+FROM python:3.10-sli
 
 WORKDIR /app
 
