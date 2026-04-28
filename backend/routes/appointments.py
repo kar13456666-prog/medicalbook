@@ -31,7 +31,6 @@ def book_appointment():
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Get slot details first
             cursor.execute('''
                 SELECT price, type, duration_minutes FROM slots 
                 WHERE doctor_id = ? AND clinic_id = ? AND date = ? AND start_time = ? 
@@ -43,17 +42,13 @@ def book_appointment():
             if not slot:
                 return jsonify({"error": "Time slot not found or unavailable"}), 404
             
-            # Get price from slot or use default
             price = float(slot["price"]) if slot and slot["price"] else 250.0
             
-            # Get duration (from slot or calculate based on type)
             if slot and slot["duration_minutes"]:
                 duration = slot["duration_minutes"]
             else:
-                # Default durations if not specified
                 duration = 30 if data.get("type") == "consultation" else 20
             
-            # Calculate end_time based on start_time and duration
             try:
                 start_dt = datetime.strptime(f"{data['date']} {time_val}", "%Y-%m-%d %H:%M")
                 end_dt = start_dt + timedelta(minutes=duration)
@@ -62,11 +57,9 @@ def book_appointment():
                 print(f"⚠️ Time calculation error: {e}, using same time as end_time")
                 end_time = time_val
             
-            # Apply discount for follow-up appointments
             if data.get("type") == "follow_up":
                 price = price * 0.7
             
-            # Check if slot is already booked
             cursor.execute('''
                 SELECT _id FROM appointments 
                 WHERE doctor_id = ? AND clinic_id = ? AND date = ? AND start_time = ? 
@@ -76,11 +69,10 @@ def book_appointment():
             if cursor.fetchone():
                 return jsonify({"error": "This time slot is already booked"}), 409
             
-            # Create appointment
             cursor.execute('''
                 INSERT INTO appointments 
                 (patient_id, doctor_id, clinic_id, date, start_time, end_time, type, 
-                 duration_minutes, status, price, created_at, updated_at)
+                duration_minutes, status, price, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
             ''', (
                 data["patient_id"], 
@@ -104,7 +96,7 @@ def book_appointment():
                 SET status = 'booked', appointment_id = ?, updated_at = ?
                 WHERE doctor_id = ? AND clinic_id = ? AND date = ? AND start_time = ?
             ''', (appointment_id, datetime.now().isoformat(), 
-                  data["doctor_id"], data["clinic_id"], data["date"], time_val))
+                data["doctor_id"], data["clinic_id"], data["date"], time_val))
             
             conn.commit()
             
@@ -136,7 +128,6 @@ def cancel_appointment(appointment_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Get appointment details before cancellation
             cursor.execute('''
                 SELECT doctor_id, clinic_id, date, start_time, status
                 FROM appointments 
@@ -154,21 +145,19 @@ def cancel_appointment(appointment_id):
             if appointment["status"] == "completed":
                 return jsonify({"error": "Cannot cancel a completed appointment"}), 400
             
-            # Update appointment status
             cursor.execute('''
                 UPDATE appointments 
                 SET status = 'cancelled', updated_at = ?, notes = ?
                 WHERE _id = ?
             ''', (datetime.utcnow().isoformat(), cancel_reason, appointment_id))
             
-            # Release the slot back to available
             cursor.execute('''
                 UPDATE slots 
                 SET status = 'available', appointment_id = NULL, updated_at = ?
                 WHERE doctor_id = ? AND clinic_id = ? AND date = ? AND start_time = ?
             ''', (datetime.utcnow().isoformat(),
-                  appointment["doctor_id"], appointment["clinic_id"],
-                  appointment["date"], appointment["start_time"]))
+                appointment["doctor_id"], appointment["clinic_id"],
+                appointment["date"], appointment["start_time"]))
             
             conn.commit()
             
@@ -194,7 +183,6 @@ def get_patient_appointments(patient_id):
         return '', 200
     
     try:
-        # Get query parameters for filtering
         status_filter = request.args.get('status')
         limit = request.args.get('limit', 50, type=int)
         page = request.args.get('page', 1, type=int)
@@ -204,7 +192,6 @@ def get_patient_appointments(patient_id):
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
-            # Base query - REMOVED a.notes since the column doesn't exist
             query = '''
                 SELECT 
                     a._id,
@@ -231,19 +218,16 @@ def get_patient_appointments(patient_id):
             '''
             params = [patient_id]
             
-            # Add status filter if provided
             if status_filter:
                 query += " AND a.status = ?"
                 params.append(status_filter)
             
-            # Add sorting and pagination
             query += " ORDER BY a.date DESC, a.start_time DESC LIMIT ? OFFSET ?"
             params.extend([limit, offset])
             
             cursor.execute(query, params)
             rows = cursor.fetchall()
             
-            # Get total count for pagination
             count_query = "SELECT COUNT(*) as total FROM appointments WHERE patient_id = ?"
             count_params = [patient_id]
             if status_filter:
@@ -258,14 +242,12 @@ def get_patient_appointments(patient_id):
             for row in rows:
                 apt = dict(row)
                 
-                # Convert IDs to string for frontend compatibility
                 apt["_id"] = str(apt["_id"])
                 if apt.get("doctor_id"):
                     apt["doctor_id"] = str(apt["doctor_id"])
                 if apt.get("clinic_id"):
                     apt["clinic_id"] = str(apt["clinic_id"])
                 
-                # Set defaults for null/empty values
                 if not apt.get("doctor_name"):
                     apt["doctor_name"] = "Unknown Doctor"
                 if not apt.get("clinic_name"):
@@ -275,7 +257,6 @@ def get_patient_appointments(patient_id):
                 if not apt.get("duration_minutes"):
                     apt["duration_minutes"] = 30
                 
-                # notes column doesn't exist → always set empty string
                 apt["notes"] = ""
                     
                 appointments.append(apt)
@@ -384,14 +365,12 @@ def update_appointment_status(appointment_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Get current status
             cursor.execute("SELECT status, doctor_id, clinic_id, date, start_time FROM appointments WHERE _id = ?", (appointment_id_int,))
             current = cursor.fetchone()
             
             if not current:
                 return jsonify({"error": "Appointment not found"}), 404
             
-            # If cancelling, release the slot
             if new_status == 'cancelled' and current["status"] != 'cancelled':
                 cursor.execute('''
                     UPDATE slots 
@@ -401,7 +380,6 @@ def update_appointment_status(appointment_id):
                       current["doctor_id"], current["clinic_id"],
                       current["date"], current["start_time"]))
             
-            # Update appointment status
             cursor.execute('''
                 UPDATE appointments 
                 SET status = ?, updated_at = ?
@@ -514,7 +492,7 @@ def check_appointment_availability():
             # Check if slot exists and is available
             cursor.execute('''
                 SELECT s._id, s.type, s.price, s.duration_minutes, s.status,
-                       CASE WHEN a._id IS NULL THEN 'available' ELSE 'booked' END as actual_status
+                    CASE WHEN a._id IS NULL THEN 'available' ELSE 'booked' END as actual_status
                 FROM slots s
                 LEFT JOIN appointments a ON s.doctor_id = a.doctor_id 
                     AND s.clinic_id = a.clinic_id 

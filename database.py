@@ -8,7 +8,7 @@ DATABASE_PATH = "medibook.db"
 def get_db():
     """Context manager for database connections - المصدر الوحيد"""
     conn = sqlite3.connect(DATABASE_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row  # للوصول بالأسماء
+    conn.row_factory = sqlite3.Row  
     try:
         yield conn
         conn.commit()
@@ -23,7 +23,6 @@ def init_database():
     with get_db() as conn:
         cursor = conn.cursor()
         
-        # جدول المستخدمين
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 _id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,7 +41,6 @@ def init_database():
             )
         ''')
         
-        # جدول العيادات
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS clinics (
                 _id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,7 +55,6 @@ def init_database():
             )
         ''')
         
-        # جدول المواعيد
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS appointments (
                 _id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -79,7 +76,6 @@ def init_database():
             )
         ''')
         
-        # جدول الفتحات المتاحة
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS slots (
                 _id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -102,7 +98,6 @@ def init_database():
             )
         ''')
         
-        # جدول التقييمات
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS reviews (
                 _id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -120,7 +115,6 @@ def init_database():
             )
         ''')
         
-        # جدول متابعة الحالات (VIP)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS FollowUp_History (
                 _id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -134,7 +128,6 @@ def init_database():
             )
         ''')
         
-        # إنشاء الفهارس
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_followup_patient ON FollowUp_History(patient_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)')

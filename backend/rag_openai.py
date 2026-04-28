@@ -1,12 +1,4 @@
-<<<<<<< HEAD
-"""
-rag_openai.py
-Purpose: RAG System with OpenRouter API - Auto-detects language with INTERNAL TRANSLATION
-Now supports Arabic with high accuracy through internal translation!
-Includes greeting detection to avoid false matches!
-"""
-=======
->>>>>>> master
+
 
 import chromadb
 from chromadb.utils import embedding_functions
@@ -18,7 +10,6 @@ from deep_translator import GoogleTranslator
 
 from contextlib import contextmanager
 import sqlite3
-<<<<<<< HEAD
 
 @contextmanager
 def get_db():
@@ -29,27 +20,22 @@ def get_db():
     finally:
         conn.close()
 
-# ========== CONFIGURATION ==========
 OPENROUTER_API_KEY = "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"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 path = r'D:\cli\data'
-=======
 from database import get_db, init_database
 from config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL
 
-# rag_openai.py
+
 import chromadb
-# ... باقي الـ imports
 from config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, CHROMA_PATH
 
-# استبدل السطر القديم: path = r'D:\cli\data' بـ:
 path = CHROMA_PATH
->>>>>>> master
 
-# Initialize translator
+
 translator = GoogleTranslator()
 
-# ========== LANGUAGE DETECTION ==========
+
 def detect_language(text):
     """Detect if text is Arabic or English"""
     arabic_pattern = re.compile(r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]')
@@ -69,11 +55,9 @@ def translate_to_english(text):
         print(f"   ⚠️ Translation failed: {e}, using original text")
         return text
 
-# ========== GREETING DETECTION ==========
 def is_greeting_or_non_medical(text, language):
     """Check if user input is just a greeting or non-medical text"""
     
-    # Arabic greetings and non-medical words
     arabic_non_medical = [
         'اهلا', 'أهلا', 'مرحبا', 'سلام', 'شكرا', 'شكراً', 'الله', 'كيف', 
         'الحال', 'اخبارك', 'صباح', 'مساء', 'بخير', 'تمام', 'حلو', 
@@ -81,7 +65,6 @@ def is_greeting_or_non_medical(text, language):
         'يعطيك العافية', 'يعطيكم العافية', 'حياك', 'الله يسلمك'
     ]
     
-    # English greetings and non-medical words
     english_non_medical = [
         'hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening',
         'thanks', 'thank you', 'how are you', 'fine', 'ok', 'okay', 'yes', 'no',
@@ -92,15 +75,14 @@ def is_greeting_or_non_medical(text, language):
     text_lower = text.lower().strip()
     
     if language == 'arabic':
-        # Check if text is just a greeting (short or contains only greetings)
         words = text_lower.split()
-        if len(words) <= 3:  # Short input like "اهلا", "مرحبا كيفك"
+        if len(words) <= 3: 
             for greeting in arabic_non_medical:
                 if greeting in text_lower:
                     return True
     else:
         words = text_lower.split()
-        if len(words) <= 3:  # Short input like "hello", "how are you"
+        if len(words) <= 3:  
             for greeting in english_non_medical:
                 if greeting in text_lower:
                     return True
@@ -140,7 +122,6 @@ Please describe your symptoms in detail, for example:
 
 How can I help you today?"""
 
-# ========== SYSTEM PROMPTS ==========
 def get_system_prompt(language):
     if language == 'arabic':
         return """أنت مساعد طبي محترف يعمل في منصة حجز عيادات.
@@ -151,7 +132,6 @@ def get_system_prompt(language):
         return """You are a professional medical assistant working for a clinic booking platform.
 Your responses are accurate, empathetic, and professional.
 Provide preliminary medical guidance only, no definitive diagnosis."""
-# في rag_openai.py
 
 def get_response_prompt(language, context, disease, severity, specialty, urgency, emergency_warning, user_input, conversation_context=None):
     """
@@ -169,7 +149,6 @@ def get_response_prompt(language, context, disease, severity, specialty, urgency
         conversation_context: Optional conversation history for context
     """
     
-    # Add conversation context if provided
     context_section = ""
     if conversation_context:
         if language == 'arabic':
@@ -196,7 +175,6 @@ def get_response_prompt(language, context, disease, severity, specialty, urgency
 ⚠️ هذه حالة طارئة تحتاج تدخل طبي فوري!
 """
         
-        # Determine severity level description
         severity_desc = ""
         if severity >= 9:
             severity_desc = "🔴 حرجة جداً - طوارئ"
@@ -244,7 +222,6 @@ Potential condition: {disease}
 ⚠️ This is an emergency that requires immediate medical attention!
 """
         
-        # Determine severity level description
         severity_desc = ""
         if severity >= 9:
             severity_desc = "🔴 CRITICAL - Emergency"
@@ -281,14 +258,12 @@ Potential condition: {disease}
 **Response:**"""
 
 
-# نسخة مبسطة للاستخدام السريع (بدون سياق المحادثة)
 def get_response_prompt_simple(language, context, disease, severity, specialty, urgency, emergency_warning, user_input):
     """
     Simplified version without conversation context
     """
     return get_response_prompt(language, context, disease, severity, specialty, urgency, emergency_warning, user_input, conversation_context=None)
 
-# ========== SPECIALTY MAPPING ==========
 def get_specialty_arabic(specialty):
     arabic_names = {
         'Dermatology': 'جلدية',
@@ -306,8 +281,7 @@ def get_specialty_arabic(specialty):
         'General Medicine': 'طب عام',
     }
     return arabic_names.get(specialty, 'طب عام')
-<<<<<<< HEAD
-=======
+
 def map_to_app_specialty(ai_detected):
     """Convert AI detected specialty to match app's dropdown options"""
     if not ai_detected:
@@ -315,9 +289,7 @@ def map_to_app_specialty(ai_detected):
     
     val = ai_detected.lower().strip()
     
-    # قاموس التحويل - يربط كلام الـ AI بالقيم الموجودة في الـ Dropdown
     mapping = {
-        # Pediatrics (أطفال)
         "pediatric": "Pediatrics",
         "pediatrics": "Pediatrics",
         "أطفال": "Pediatrics",
@@ -326,39 +298,33 @@ def map_to_app_specialty(ai_detected):
         "baby": "Pediatrics",
         "kid": "Pediatrics",
         
-        # Internal Medicine (باطنة)
         "internal medicine": "Internal Medicine",
         "internal": "Internal Medicine",
         "باطنة": "Internal Medicine",
         "طب باطني": "Internal Medicine",
         
-        # Cardiology (قلب)
         "cardiology": "Cardiology",
         "قلب": "Cardiology",
         "heart": "Cardiology",
         "chest pain": "Cardiology",
         
-        # Dermatology (جلدية)
         "dermatology": "Dermatology",
         "جلدية": "Dermatology",
         "skin": "Dermatology",
         "rash": "Dermatology",
         
-        # Orthopedics (عظام)
         "orthopedics": "Orthopedics",
         "orthopedic": "Orthopedics",
         "عظام": "Orthopedics",
         "bone": "Orthopedics",
         "joint": "Orthopedics",
         
-        # ENT (أنف وأذن وحنجرة)
         "ent": "ENT",
         "ear nose throat": "ENT",
         "أنف وأذن": "ENT",
         "ear": "ENT",
         "throat": "ENT",
         
-        # Neurology (مخ وأعصاب)
         "neurology": "Neurology",
         "مخ وأعصاب": "Neurology",
         "brain": "Neurology",
@@ -366,58 +332,49 @@ def map_to_app_specialty(ai_detected):
         "headache": "Neurology",
         "migraine": "Neurology",
         
-        # Ophthalmology (عيون)
         "ophthalmology": "Ophthalmology",
         "eye": "Ophthalmology",
         "عيون": "Ophthalmology",
         "vision": "Ophthalmology",
         
-        # Urology (مسالك بولية)
         "urology": "Urology",
         "مسالك بولية": "Urology",
         "urinary": "Urology",
         
-        # Gastroenterology (جهاز هضمي)
         "gastroenterology": "Gastroenterology",
         "جهاز هضمي": "Gastroenterology",
         "stomach": "Gastroenterology",
         "digest": "Gastroenterology",
         
-        # Respiratory Medicine (صدرية)
         "respiratory": "Respiratory Medicine",
         "chest": "Respiratory Medicine",
         "lung": "Respiratory Medicine",
         "صدرية": "Respiratory Medicine",
         "cough": "Respiratory Medicine",
         
-        # Psychiatry (نفسية)
         "psychiatry": "Psychiatry",
         "نفسية": "Psychiatry",
         "mental": "Psychiatry",
         "anxiety": "Psychiatry",
         "depression": "Psychiatry",
         
-        # Infectious Disease (أمراض معدية)
         "infectious": "Infectious Disease",
         "infection": "Infectious Disease",
         "أمراض معدية": "Infectious Disease",
         "bacteria": "Infectious Disease",
         "virus": "Infectious Disease",
         
-        # General Medicine (طب عام)
         "general medicine": "General Medicine",
         "general": "General Medicine",
         "طب عام": "General Medicine",
         "family medicine": "General Medicine",
     }
     
-    # البحث عن المفتاح المناسب
     for key, target in mapping.items():
         if key in val:
             print(f"🔄 Mapping: '{ai_detected}' → '{target}'")
             return target
     
-    # Fallback إلى Internal Medicine إذا لم يتم العثور على تطابق
     print(f"⚠️ No mapping found for '{ai_detected}', defaulting to Internal Medicine")
     return "Internal Medicine"
 
@@ -473,7 +430,6 @@ def generate_medical_response_with_context(full_context, original_message, histo
         urgency = get_urgency_arabic(0) if user_language == 'arabic' else get_urgency_english(0)
         emergency_warning = False
     
-    # استخدم الدالة المعدلة مع السياق
     prompt = get_response_prompt_with_context(
         user_language, context, disease, severity, 
         specialty_display, urgency, emergency_warning, 
@@ -483,7 +439,6 @@ def generate_medical_response_with_context(full_context, original_message, histo
     print("🤖 Generating response with AI...")
     ai_response = call_openrouter(prompt, user_language)
     
-    # تنظيف الرد
     if ai_response and len(ai_response) > 2:
         if ai_response[0] == '"' and ai_response[-1] == '"':
             ai_response = ai_response[1:-1]
@@ -505,23 +460,20 @@ def generate_medical_response_with_context(full_context, original_message, histo
 
 def get_response_prompt_with_context(language, context, disease, severity, specialty, urgency, emergency_warning, user_input, full_context):
     """Build prompt with conversation context - uses get_response_prompt from rag_openai"""
-    # استخدم الدالة من rag_openai مع السياق الإضافي
     base_prompt = get_response_prompt(
         language, context, disease, severity, 
         specialty, urgency, emergency_warning, user_input
     )
     
-    # أضف السياق إذا موجود
     if full_context:
         if language == 'arabic':
             context_section = f"\n\n**سياق المحادثة السابقة:**\n{full_context}\n"
         else:
             context_section = f"\n\n**Conversation Context:**\n{full_context}\n"
         
-        # أدخل السياق في بداية الـ prompt
         lines = base_prompt.split('\n')
         if language == 'arabic':
-            insert_pos = 2  # بعد السطر الأول
+            insert_pos = 2 
         else:
             insert_pos = 2
         lines.insert(insert_pos, context_section)
@@ -555,7 +507,6 @@ def build_conversation_context(history, current_message, max_messages=6):
 Based on the conversation above, analyze the patient's current symptoms and provide appropriate medical guidance."""
 
 
->>>>>>> master
 
 def get_urgency_arabic(score):
     if score >= 9:
@@ -577,21 +528,19 @@ def get_urgency_english(score):
     else:
         return "🟢 LOW URGENCY - Monitor symptoms, consult if persists"
 
-# ========== CONNECT TO VECTOR DATABASE ==========
-# ========== CONNECT TO VECTOR DATABASE ==========
+
 print("🔌 Connecting to ChromaDB...")
 chroma_client = chromadb.PersistentClient(path=os.path.join(path, "medical_vector_db"))  # غيرنا الاسم
 ef = embedding_functions.DefaultEmbeddingFunction()
 collection = chroma_client.get_collection(name="medical_assistant", embedding_function=ef)  # غيرنا هنا
 print("✅ Connected successfully!")
 
-# ========== OPENROUTER AI CLIENT (للـ LLM) ==========
 class OpenRouterClient:
     """Client for OpenRouter API calls"""
     def __init__(self, api_key, base_url):
         self.api_key = api_key
         self.base_url = base_url
-        self.chat = self  # عشان نحافظ على الـ structure
+        self.chat = self  
     
     def completions(self):
         return self
@@ -621,7 +570,6 @@ class OpenRouterClient:
             )
             
             if response.status_code == 200:
-                # Return object with same structure as OpenAI
                 class Response:
                     def __init__(self, data):
                         self.choices = [Choice(data['choices'][0])]
@@ -641,28 +589,23 @@ class OpenRouterClient:
         except Exception as e:
             raise Exception(f"OpenRouter Error: {str(e)}")
 
-# Create AI client
 ai_client = OpenRouterClient(OPENROUTER_API_KEY, OPENROUTER_BASE_URL)
-# ========== SMART QUERY FUNCTION (WITH INTERNAL TRANSLATION) ==========
 def smart_medical_query(user_input, original_language, n_results=3):
     """
     Query the vector database.
     If input is Arabic, it's internally translated to English for better search accuracy.
     """
     
-    # For Arabic: translate to English for vector search
     if original_language == 'arabic':
         search_query = translate_to_english(user_input)
     else:
         search_query = user_input
     
-    # Search in vector database with the translated query
     results = collection.query(
         query_texts=[search_query],
         n_results=n_results
     )
     
-    # Analyze results and determine highest severity
     max_severity = 0
     most_critical_doc = None
     
@@ -690,10 +633,9 @@ def smart_medical_query(user_input, original_language, n_results=3):
         'most_critical': most_critical_doc,
         'emergency_alert': emergency_alert,
         'recommended_specialty': most_critical_doc['specialty'] if most_critical_doc else 'General Medicine',
-        'search_query_used': search_query  # For debugging
+        'search_query_used': search_query  
     }
 
-# ========== OPENROUTER API CALL ==========
 def call_openrouter(prompt, language):
     """Call OpenRouter API with the selected model"""
     
@@ -734,7 +676,6 @@ def call_openrouter(prompt, language):
     
 
 
-# في rag_openai.py - استبدل دالة check_intent_with_llm بالكامل بهذه النسخة
 
 from typing import Literal
 import functools
@@ -759,17 +700,12 @@ def check_intent_with_llm(
         "medical" - if the message contains symptoms, health concerns, or medical questions
     """
     
-    # Clean input
     user_text = user_text.strip()
     if not user_text:
         print("⚠️ Empty input received, defaulting to medical")
         return "medical"
     
-    # ==========================================
-    # ENHANCED KEYWORD-BASED DETECTION
-    # ==========================================
-    
-    # Pure greetings (no medical context)
+
     pure_greetings_ar = [
         'اهلا', 'أهلا', 'مرحبا', 'سلام', 'هلا', 'أهلاً', 'مرحباً',
         'عامل اي', 'عامل ايه', 'اخبارك', 'كيفك', 'كيف الحال',
@@ -786,7 +722,6 @@ def check_intent_with_llm(
         'great', 'awesome', 'cool', 'okay', 'ok'
     ]
     
-    # Medical keywords (strong indicators)
     strong_medical_ar = [
         'وجع', 'ألم', 'الم', 'دواء', 'علاج', 'مرض', 'كحة', 'كحه',
         'حرارة', 'سخونية', 'تعب', 'إعياء', 'اعراض', 'أعراض',
@@ -808,20 +743,15 @@ def check_intent_with_llm(
     user_lower = user_text.lower()
     word_count = len(user_text.split())
     
-    # ==========================================
-    # RULE 1: Very short messages (1-2 words)
-    # ==========================================
+
     if word_count <= 2:
-        # Check for pure Arabic greetings
         for greeting in pure_greetings_ar:
             if greeting in user_lower:
-                # Ensure no medical terms are present
                 has_medical = any(med in user_lower for med in strong_medical_ar)
                 if not has_medical:
                     print(f"✅ Pure greeting detected (short message): '{user_text}'")
                     return "greeting"
         
-        # Check for pure English greetings
         for greeting in pure_greetings_en:
             if greeting in user_lower:
                 has_medical = any(med in user_lower for med in strong_medical_en)
@@ -829,17 +759,13 @@ def check_intent_with_llm(
                     print(f"✅ Pure greeting detected (short message): '{user_text}'")
                     return "greeting"
     
-    # ==========================================
-    # RULE 2: Check for strong medical indicators
-    # ==========================================
+
     for keyword in strong_medical_ar + strong_medical_en:
         if keyword in user_lower:
             print(f"✅ Strong medical keyword detected: '{keyword}' in '{user_text}'")
             return "medical"
     
-    # ==========================================
-    # RULE 3: Check for mixed content (greeting + medical)
-    # ==========================================
+
     has_greeting = any(g in user_lower for g in pure_greetings_ar + pure_greetings_en)
     has_medical = any(m in user_lower for m in strong_medical_ar + strong_medical_en)
     
@@ -847,19 +773,14 @@ def check_intent_with_llm(
         print(f"✅ Mixed content detected (greeting + medical): '{user_text}' → medical")
         return "medical"
     
-    # ==========================================
-    # RULE 4: Quick check for obvious greetings (with length validation)
-    # ==========================================
-    # If message has 3 words or less and contains only greetings
+
     if word_count <= 3:
         all_greetings = True
         words = user_lower.split()
         for word in words:
-            # Check if word is a greeting (either language)
             is_greeting_word = (
                 word in pure_greetings_ar or 
                 word in pure_greetings_en or
-                # Common greeting variations
                 word in ['ahla', 'ahlan', 'marhaba', 'salam', 'hello', 'hi', 'hey']
             )
             if not is_greeting_word:
@@ -870,12 +791,9 @@ def check_intent_with_llm(
             print(f"✅ All words are greetings: '{user_text}' → greeting")
             return "greeting"
     
-    # ==========================================
-    # RULE 5: Use LLM for ambiguous cases
-    # ==========================================
+
     for attempt in range(retry_count + 1):
         try:
-            # Enhanced system prompt for better classification
             system_prompt = (
                 "You are a strict intent classifier for a medical assistant chatbot.\n"
                 "Analyze ONLY the user's CURRENT message (ignore any previous conversation).\n"
@@ -909,10 +827,10 @@ def check_intent_with_llm(
                 "model": model,
                 "messages": [
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_text}  # Send ONLY current message
+                    {"role": "user", "content": user_text}  
                 ],
                 "max_tokens": 5,
-                "temperature": 0,  # Zero temperature for consistent results
+                "temperature": 0,  
                 "top_p": 1.0
             }
             
@@ -954,12 +872,10 @@ def check_intent_with_llm(
                 return "medical"
             time.sleep(0.5)
     
-    # Default fallback for safety
     print(f"⚠️ Defaulting to medical for: '{user_text}'")
     return "medical"
 
 
-# Add helper functions for cache management
 def clear_intent_cache():
     """Clear the intent classification cache"""
     check_intent_with_llm.cache_clear()
@@ -998,7 +914,6 @@ def is_pure_greeting_quick(text: str) -> bool:
     
     return any(greeting in text for greeting in pure_greetings)
 
-# Optional: Function to get cache statistics
 def get_cache_stats():
     """Get cache performance statistics"""
     cache_info = check_intent_with_llm.cache_info()
@@ -1008,9 +923,7 @@ def get_cache_stats():
         'maxsize': cache_info.maxsize,
         'currsize': cache_info.currsize
     }
-# في rag_openai.py
 
-# ========== RESPONSE GENERATION (Auto Language + Internal Translation + Greeting Detection) ==========
 def generate_medical_response(user_input, conversation_context=None):
     """
     Generate response with internal translation for Arabic queries and greeting detection.
@@ -1023,11 +936,9 @@ def generate_medical_response(user_input, conversation_context=None):
         Dictionary with AI response and analysis
     """
     
-    # Detect user's language
     user_language = detect_language(user_input)
     print(f"\n🌐 Detected language: {'العربية' if user_language == 'arabic' else 'English'}")
     
-    # Check if input is just a greeting or non-medical
     if is_greeting_or_non_medical(user_input, user_language):
         print("👋 Greeting detected - returning friendly response")
         return {
@@ -1045,20 +956,16 @@ def generate_medical_response(user_input, conversation_context=None):
             }
         }
     
-    # For Arabic: Show that we're doing internal translation
     if user_language == 'arabic':
         print("🔄 Internal translation activated for accurate search...")
     
     print("🔍 Analyzing your symptoms...")
     
-    # Get analysis from vector database (with internal translation for Arabic)
     analysis = smart_medical_query(user_input, user_language)
     
-    # Show what search query was used (for debugging)
     if user_language == 'arabic' and analysis.get('search_query_used'):
         print(f"   📝 Search query (translated): '{analysis['search_query_used']}'")
     
-    # Prepare context for response
     if analysis.get('most_critical'):
         best_match = analysis['most_critical']
         context = best_match.get('text', 'No specific medical information found')
@@ -1066,7 +973,6 @@ def generate_medical_response(user_input, conversation_context=None):
         severity = best_match.get('severity', 0)
         specialty = best_match.get('specialty', 'General Medicine')
         
-        # Get urgency text and specialty in correct language
         if user_language == 'arabic':
             urgency = get_urgency_arabic(severity)
             specialty_display = get_specialty_arabic(specialty)
@@ -1084,7 +990,6 @@ def generate_medical_response(user_input, conversation_context=None):
         urgency = get_urgency_arabic(0) if user_language == 'arabic' else get_urgency_english(0)
         emergency_warning = False
     
-    # Build prompt in correct language (include conversation context if provided)
     if conversation_context:
         prompt = get_response_prompt(
             user_language, context, disease, severity, 
@@ -1097,11 +1002,9 @@ def generate_medical_response(user_input, conversation_context=None):
             specialty_display, urgency, emergency_warning, user_input
         )
     
-    # Call AI
     print("🤖 Generating response with AI...")
     ai_response = call_openrouter(prompt, user_language)
     
-    # Clean response if needed
     if ai_response and len(ai_response) > 2:
         if ai_response[0] == '"' and ai_response[-1] == '"':
             ai_response = ai_response[1:-1]
@@ -1123,11 +1026,7 @@ def generate_medical_response(user_input, conversation_context=None):
     }
 
 
-<<<<<<< HEAD
-# ========== DYNAMIC RESPONSE GENERATOR (النسخة المحسنة - دعم طلب الدكاترة) ==========
-=======
->>>>>>> master
-# ========== DYNAMIC RESPONSE GENERATOR (النسخة المحسنة والأكثر استقراراً) ==========
+
 def generate_dynamic_response_with_llm(conversation_context, user_message, history=None):
     """
     نسخة محسنة جداً لتجنب أخطاء JSON Decode مع Gemini.
@@ -1192,23 +1091,19 @@ def generate_dynamic_response_with_llm(conversation_context, user_message, histo
 
         content = response.json()['choices'][0]['message']['content'].strip()
 
-        print(f"Raw AI output: {content[:300]}...")  # للتصحيح
+        print(f"Raw AI output: {content[:300]}...")  
 
-        # تنظيف قوي جداً للـ JSON
         import re
-        # إزالة أي نص قبل أو بعد الـ JSON
         json_match = re.search(r'(\{.*\})', content, re.DOTALL)
         if json_match:
             json_str = json_match.group(1)
         else:
             json_str = content
 
-        # تنظيف إضافي
         json_str = json_str.strip().replace('\n', ' ').replace('```json', '').replace('```', '')
 
         result = json.loads(json_str)
 
-        # تنظيف الهيكل
         result.setdefault('type', 'general')
         result.setdefault('ai_response', "حاضر، ممكن توضح أكثر؟")
 
@@ -1216,7 +1111,6 @@ def generate_dynamic_response_with_llm(conversation_context, user_message, histo
             result['analysis'] = {}
 
         if result.get('type') == 'doctor_request' and not result['analysis'].get('specialty'):
-            # استخراج التخصص يدوياً إذا فشل الـ LLM
             msg = user_message.lower()
             if 'cardiology' in msg or 'قلب' in msg:
                 result['analysis']['specialty'] = 'Cardiology'
@@ -1257,17 +1151,12 @@ import requests
 import re
 from deep_translator import GoogleTranslator
 
-
-<<<<<<< HEAD
-=======
 def get_automated_medical_context(patient_id):
     try:
-        # الربط مع الداتابيز بتاعتك
         conn = sqlite3.connect('medibook.db') 
         cursor = conn.cursor()
         
-        # بنجيب آخر تخصص المريض حجز فيه من جدول الـ appointments
-        # تأكد أن اسم الجدول 'appointments' واسم العمود 'specialty' و 'patient_id'
+
         cursor.execute('''
             SELECT specialty 
             FROM appointments 
@@ -1279,14 +1168,13 @@ def get_automated_medical_context(patient_id):
         conn.close()
         
         if result:
-            return result[0] # سيرجع مثلاً 'Cardiologist' أو 'Pediatrician'
+            return result[0] 
         return "General"
     except Exception as e:
         print(f"❌ Database Error: {e}")
         return "General"
 
 
->>>>>>> master
 def get_followup_prompt(history, current_symptoms, language='arabic'):
     """Enhanced prompt that knows the previous specialty"""
     
@@ -1335,8 +1223,7 @@ def get_followup_prompt(history, current_symptoms, language='arabic'):
 **Response:**"""
 
 
-# ========== DATABASE FUNCTIONS FOR FOLLOW-UP ==========
-# في rag_openai.py (أو في app.py فوق الـ VIP routes)
+
 def get_patient_history(patient_id):
     """جلب آخر سجل متابعة أو آخر حجز"""
     if not patient_id:
@@ -1348,7 +1235,6 @@ def get_patient_history(patient_id):
         with get_db() as conn:
             cursor = conn.cursor()
 
-            # أولاً نحاول نجيب من FollowUp_History
             cursor.execute('''
                 SELECT 
                     last_diagnosis,
@@ -1369,7 +1255,6 @@ def get_patient_history(patient_id):
                 print(f"✅ Found FollowUp history for patient {patient_id}")
                 return history
 
-            # لو مفيش → نجيب من آخر حجز في appointments
             cursor.execute('''
                 SELECT 
                     u.specialty as last_specialty,
@@ -1400,7 +1285,7 @@ def get_patient_history(patient_id):
 def save_session_to_db(patient_id, diagnosis, severity, meds, symptoms):
     """حفظ جلسة المتابعة في نفس قاعدة medibook.db"""
     try:
-        with get_db() as conn:   # ← نستخدم نفس الـ context manager بتاع medibook.db
+        with get_db() as conn:   
             cursor = conn.cursor()
 
             now = datetime.now().isoformat()
@@ -1418,7 +1303,7 @@ def save_session_to_db(patient_id, diagnosis, severity, meds, symptoms):
                 now
             ))
 
-            conn.commit()   # مش محتاجينه هنا لأن get_db() بيعمله تلقائي، لكن مش هيضر
+            conn.commit()   
 
         print(f"✅ SAVED SUCCESSFULLY → Patient {patient_id} | Diagnosis: {diagnosis} | Symptoms: {symptoms[:70]}...")
 
@@ -1432,7 +1317,6 @@ def save_session_to_db(patient_id, diagnosis, severity, meds, symptoms):
 
 
 
-# ====================== VIP PERSONALIZED MEDICAL TRACKING API ======================
 def generate_vip_personalized_response(patient_id: str, user_input: str):
     """VIP Follow-up ذكي + حفظ + مقارنة مع الأعراض السابقة (نسخة محسنة)"""
     
@@ -1443,7 +1327,6 @@ def generate_vip_personalized_response(patient_id: str, user_input: str):
             'language': detect_language(user_input)
         }
 
-    # جلب التاريخ السابق
     history = get_patient_history(patient_id)
     user_language = detect_language(user_input)
 
@@ -1456,15 +1339,12 @@ def generate_vip_personalized_response(patient_id: str, user_input: str):
             'analysis': {'is_followup': False}
         }
 
-    # استخراج البيانات السابقة
     prev_symptoms = history.get('last_symptoms', 'لا توجد أعراض سابقة')
     specialty = history.get('last_specialty', 'طب عام')
     prev_severity = int(history.get('last_severity', 5))
     
-    # الـ diagnosis النهائي (مهم عشان يفضل Pediatrics مش "طب عام")
     final_diagnosis = history.get('last_diagnosis') or specialty or "متابعة أطفال"
 
-    # Prompt محسن
     prompt = f"""أنت مدرب طبي شخصي ذكي متخصص في متابعة الأطفال في تخصص {specialty}.
 
 **السجل السابق:**
@@ -1485,14 +1365,12 @@ def generate_vip_personalized_response(patient_id: str, user_input: str):
 أنهي الرد دايماً بـ:
 "تنبيه: هذه متابعة أولية فقط ولا تغني عن زيارة الطبيب المختص."""
 
-    # توليد الرد من الـ AI
     ai_response = call_openrouter(prompt, user_language)
 
-    # حفظ الجلسة الجديدة
     try:
         save_session_to_db(
             patient_id=str(patient_id),
-            diagnosis=final_diagnosis,        # ← أهم تعديل
+            diagnosis=final_diagnosis,     
             severity=prev_severity,
             meds=history.get('medications', ""),
             symptoms=user_input
@@ -1503,7 +1381,6 @@ def generate_vip_personalized_response(patient_id: str, user_input: str):
         import traceback
         traceback.print_exc()
 
-    # الرد النهائي
     return {
         'success': True,
         'ai_response': ai_response,
@@ -1519,7 +1396,6 @@ def generate_vip_personalized_response(patient_id: str, user_input: str):
         }
     }
 
-# ========== MAIN PROGRAM ==========
 def main():
     print("="*60)
     print("🏥 AI Medical Assistant - Clinic Booking System")
@@ -1548,28 +1424,21 @@ def main():
             print("❌ Please enter symptoms / الرجاء إدخال الأعراض")
             continue
         
-        # 🆕 **NEW: Detect intent first**
         intent = check_intent_with_llm(user_input)
         
-        # 🆕 **Handle greeting separately**
         if intent == "greeting":
             print("\n🤖 **Response / الرد:**")
             print("-"*60)
-            # Use dynamic greeting generator
             if any(arabic_char in user_input for arabic_char in ['ا', 'ب', 'ت', 'ث', 'ج']):
-                # Arabic greeting
                 print("🏥 أهلاً وسهلاً بك! 👋\nكيف يمكنني مساعدتك اليوم؟ من فضلك صف لي أعراضك الطبية لأتمكن من مساعدتك في اختيار العيادة المناسبة.\n🩺")
             else:
-                # English greeting
                 print("🏥 Welcome! 👋\nHow can I help you today? Please describe your medical symptoms so I can help you find the right clinic.\n🩺")
             print("-"*60)
-            continue  # Skip medical analysis for greetings
+            continue  
         
-        # Original medical response flow
         result = generate_medical_response(user_input)
         
         if result['success']:
-            # Emergency alert in appropriate language
             if result['analysis']['is_emergency']:
                 print("\n" + "="*60)
                 if result['language'] == 'arabic':
@@ -1580,13 +1449,11 @@ def main():
                 print(result['analysis']['urgency'])
                 print("="*60)
             
-            # AI Response
             print("\n🤖 **Response / الرد:**")
             print("-"*60)
             print(result['ai_response'])
             print("-"*60)
             
-            # Additional info (skip for greetings)
             if not result.get('is_greeting', False):
                 print(f"\n📋 Information / معلومات:")
                 if result['language'] == 'arabic':
@@ -1613,10 +1480,9 @@ if __name__ == "__main__":
 
 
 __all__ = [
-<<<<<<< HEAD
     'check_intent_with_llm',
     'generate_medical_response',
-    'generate_dynamic_response_with_llm',   # ← أضف هذا السطر
+    'generate_dynamic_response_with_llm',   
     'detect_language',
     'is_greeting_or_non_medical',
     'get_greeting_response',
@@ -1625,8 +1491,7 @@ __all__ = [
     'get_urgency_arabic',
     'get_urgency_english',
     'call_openrouter',
-    'get_response_prompt'
-=======
+    'get_response_prompt',
     generate_medical_response,
     detect_language,
     is_greeting_or_non_medical,
@@ -1646,5 +1511,4 @@ __all__ = [
     get_response_prompt_with_context,
     generate_medical_response_with_context,
     get_automated_medical_context
->>>>>>> master
 ]

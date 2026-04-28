@@ -15,14 +15,12 @@ def signup():
         if not all(k in data for k in required):
             return jsonify({"error": "Missing required fields"}), 400
 
-        # التحقق من عدم وجود الإيميل باستخدام SQLite
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT _id FROM users WHERE email = ?", (data["email"],))
             if cursor.fetchone():
                 return jsonify({"error": "Email already registered"}), 409
 
-            # تحضير بيانات المستخدم
             now_iso = datetime.now(timezone.utc).isoformat()
             
             doc = {
@@ -44,7 +42,6 @@ def signup():
                     "clinic_affiliations": "[]"  # JSON string
                 })
             else:
-                # للمريض أو المدير
                 doc.update({
                     "specialty": None,
                     "image": data.get("image", "https://i.pravatar.cc/150"),
@@ -54,7 +51,6 @@ def signup():
                     "clinic_affiliations": "[]"
                 })
 
-            # إدراج المستخدم
             columns = ', '.join(doc.keys())
             placeholders = ', '.join(['?'] * len(doc))
             query = f"INSERT INTO users ({columns}) VALUES ({placeholders})"
@@ -86,22 +82,17 @@ def login():
 
         with get_db() as conn:
             cursor = conn.cursor()
-            # البحث باستخدام الإيميل الموحد
             cursor.execute("SELECT * FROM users WHERE email = ?", (email_input,))
             user = cursor.fetchone()
 
             if not user:
                 return jsonify({"error": "Invalid credentials"}), 401
-            
-            # بقية الكود...
-            # التحقق من كلمة المرور
+
             if not check_password_hash(user["password"], data.get("password")):
                 return jsonify({"error": "Invalid credentials"}), 401
 
-            # تحويل user من sqlite3.Row إلى dict
             user_dict = dict(user)
             
-            # تجهيز بيانات المستخدم للرد
             user_data = {
                 "id": user_dict["_id"],
                 "name": user_dict["name"],

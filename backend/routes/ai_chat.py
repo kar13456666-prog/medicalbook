@@ -28,15 +28,12 @@ def chat():
 
         print(f"\n📨 Received: '{user_message}' | History: {len(history)}")
 
-        # بناء السياق
         conversation_context = build_conversation_context(history, user_message)
 
-        # استدعاء الدالة المحدثة
         result = generate_dynamic_response_with_llm(conversation_context, user_message, history)
 
         print(f"✅ Dynamic LLM decided: type = {result.get('type', 'unknown')} | Message: '{user_message[:60]}...'")
 
-        # SAFE HANDLING
         if isinstance(result, str):
             ai_response = result
             response_type = "general"
@@ -58,33 +55,24 @@ def chat():
             "language": result.get('language', detect_language(user_message)) if isinstance(result, dict) else detect_language(user_message)
         }
 
-        # ====================== التحديث الجديد ======================
         if response_type == "doctor_request":
-            # استخراج التخصص الموصى به من عدة مصادر
             specialty = None
             
-            # 1. من analysis
             if isinstance(analysis, dict):
                 specialty = analysis.get('specialty')
             
-            # 2. من recommended_specialty المباشر
             if not specialty and isinstance(result, dict):
                 specialty = result.get('recommended_specialty')
             
-            # 3. من specialty_detected
             if not specialty and isinstance(result, dict):
                 specialty = result.get('specialty_detected')
             
-            # 4. استخراج من الرسالة مباشرة (fallback)
             if not specialty:
-                # استخراج التخصص من الرسالة باستخدام extract_specialty_from_message
                 specialty = extract_specialty_from_message(user_message)
             
-            # 5. آخر fallback
             if not specialty:
                 specialty = "Internal Medicine"
             
-            # تطبيع التخصص ليتوافق مع قاعدة البيانات
             normalized_specialty = map_to_app_specialty(specialty)
             
             print(f"🎯 Extracted specialty: '{specialty}' → Normalized: '{normalized_specialty}'")
@@ -92,7 +80,7 @@ def chat():
             response_data.update({
                 "type": "doctor_request",
                 "recommended_specialty": normalized_specialty,
-                "original_specialty": specialty,  # للتصحيح
+                "original_specialty": specialty,  
                 "show_doctors": True,
                 "ai_response": ai_response,
                 "response": ai_response,
@@ -100,11 +88,9 @@ def chat():
                 "message": f"{ai_response}\n\nهل تريد رؤية الدكاترة المتاحين في تخصص **{normalized_specialty}**؟"
             })
 
-        # الحالة العادية للـ medical
         elif response_type == "medical" and isinstance(analysis, dict):
             specialty = analysis.get('specialty')
             
-            # تطبيع التخصص للـ medical
             if specialty:
                 normalized_specialty = map_to_app_specialty(specialty)
             else:
@@ -122,7 +108,6 @@ def chat():
                 "specialty_detected": normalized_specialty
             })
 
-        # greeting أو general عادي (بدون تحليل إضافي)
         else:
             pass
 
@@ -185,7 +170,6 @@ def vip_medical_tracking(patient_id):
                 "ai_response": "يرجى إرسال رسالة تحتوي على الأعراض التي تعاني منها."
             }), 400
         
-        # Get message from either 'message' or 'symptoms' field
         user_input = data.get('message') or data.get('symptoms')
         
         if not user_input:
@@ -198,10 +182,8 @@ def vip_medical_tracking(patient_id):
         print(f"\n👑 VIP Chat - Patient {patient_id}")
         print(f"📨 Message: '{user_input[:100]}...'")
         
-        # Call the VIP personalized response function
         result = generate_vip_personalized_response(str(patient_id), user_input)
         
-        # Extract response with fallback
         ai_response = result.get('ai_response') or result.get('response') or "شكراً لمتابعتك. هل يمكنك وصف الأعراض بمزيد من التفصيل؟"
         
         return jsonify({
@@ -273,7 +255,6 @@ def extract_specialty_from_message(message):
     
     message_lower = message.lower()
     
-    # خريطة التخصصات والكلمات المفتاحية
     specialty_patterns = {
         "Cardiology": ["قلب", "cardiology", "أمراض القلب", "القلب", "cardiologist"],
         "Pediatrics": ["أطفال", "pediatrics", "اطفال", "pediatric"],

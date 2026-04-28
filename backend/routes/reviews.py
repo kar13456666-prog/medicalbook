@@ -16,7 +16,6 @@ def get_doctor_reviews(doctor_id):
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
-            # جلب التقييمات مع اسم المريض وصورته
             query = '''
                 SELECT 
                     r._id,
@@ -43,13 +42,11 @@ def get_doctor_reviews(doctor_id):
                 if review.get("patient_id"):
                     review["patient_id"] = str(review["patient_id"])
                 
-                # إضافة صورة افتراضية للمريض إذا لم توجد
                 if not review.get("patient_image"):
                     review["patient_image"] = f"https://ui-avatars.com/api/?name={review.get('patient_name', 'Patient')}&background=0D9488&color=fff&size=64"
                 
                 reviews.append(review)
             
-            # جلب متوسط التقييمات للدكتور
             cursor.execute('''
                 SELECT 
                     COALESCE(AVG(rating), 0) as avg_rating,
@@ -89,16 +86,13 @@ def add_appointment_review(appointment_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # 1. إدخال التقييم في جدول reviews
             cursor.execute('''
                 INSERT INTO reviews (patient_id, doctor_id, appointment_id, rating, comment, created_at)
                 VALUES (?, ?, ?, ?, ?, ?)
             ''', (patient_id, doctor_id, appointment_id, rating, comment, now_iso))
 
-            # 2. تحديث حالة الموعد ليكون 'completed' أو تحديث أنه تم تقييمه
             cursor.execute('UPDATE appointments SET status = "completed" WHERE _id = ?', (appointment_id,))
 
-            # 3. تحديث متوسط تقييم الدكتور في جدول users
             cursor.execute("SELECT AVG(rating) as avg_rating, COUNT(*) as count FROM reviews WHERE doctor_id = ?", (doctor_id,))
             stats = cursor.fetchone()
             
@@ -131,7 +125,6 @@ def manage_review(review_id):
             cursor = conn.cursor()
             
             if request.method == 'PUT':
-                # Update review
                 data = request.json
                 update_fields = []
                 params = []
@@ -150,7 +143,6 @@ def manage_review(review_id):
                 if not update_fields:
                     return jsonify({"error": "No fields to update"}), 400
                 
-                # Get old review to update doctor's rating
                 cursor.execute("SELECT doctor_id, rating FROM reviews WHERE _id = ?", (review_id_int,))
                 old_review = cursor.fetchone()
                 
@@ -163,7 +155,6 @@ def manage_review(review_id):
                 
                 cursor.execute(f"UPDATE reviews SET {', '.join(update_fields)} WHERE _id = ?", params)
                 
-                # If rating was updated, recalculate doctor's average
                 if "rating" in [f.split('=')[0].strip() for f in update_fields if '=' in f]:
                     cursor.execute("SELECT AVG(rating) as avg_rating, COUNT(*) as count FROM reviews WHERE doctor_id = ?", (old_review["doctor_id"],))
                     stats = cursor.fetchone()
@@ -178,7 +169,6 @@ def manage_review(review_id):
                 return jsonify({"message": "Review updated successfully"}), 200
                 
             elif request.method == 'DELETE':
-                # Delete review
                 cursor.execute("SELECT doctor_id FROM reviews WHERE _id = ?", (review_id_int,))
                 review = cursor.fetchone()
                 
@@ -189,7 +179,6 @@ def manage_review(review_id):
                 
                 cursor.execute("DELETE FROM reviews WHERE _id = ?", (review_id_int,))
                 
-                # Recalculate doctor's average
                 cursor.execute("SELECT AVG(rating) as avg_rating, COUNT(*) as count FROM reviews WHERE doctor_id = ?", (doctor_id,))
                 stats = cursor.fetchone()
                 
@@ -222,14 +211,12 @@ def check_if_can_review(appointment_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Check if appointment exists and is completed
             cursor.execute("SELECT status FROM appointments WHERE _id = ?", (appointment_id_int,))
             appointment = cursor.fetchone()
             
             if not appointment or appointment["status"] != "completed":
                 return jsonify({"can_review": False, "reason": "Appointment not completed"}), 200
             
-            # Check if review already exists
             cursor.execute("SELECT _id, rating, comment FROM reviews WHERE appointment_id = ?", (appointment_id_int,))
             existing_review = cursor.fetchone()
             

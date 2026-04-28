@@ -18,13 +18,11 @@ def get_doctor_analytics(doctor_id):
     - Time-based analytics (daily, weekly, monthly, yearly)
     """
     try:
-        doctor_id_int = int(doctor_id)  # SQLite uses INTEGER
+        doctor_id_int = int(doctor_id)  
         
-        # Get query parameters for date range
-        period = request.args.get('period', 'all')  # day, week, month, year, all
-        specific_date = request.args.get('date')  # YYYY-MM-DD format
+        period = request.args.get('period', 'all')  
+        specific_date = request.args.get('date')  
         
-        # Build date filter
         date_condition = ""
         date_params = []
         today = datetime.now(timezone.utc).date()
@@ -42,7 +40,6 @@ def get_doctor_analytics(doctor_id):
                 target_date = datetime.strptime(specific_date, '%Y-%m-%d').date()
             else:
                 target_date = today
-            # Get start of week (Monday)
             start_of_week = target_date - timedelta(days=target_date.weekday())
             end_of_week = start_of_week + timedelta(days=6)
             date_condition = "AND date >= ? AND date <= ?"
@@ -72,7 +69,6 @@ def get_doctor_analytics(doctor_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Get all appointments for this doctor with optional date filter
             query = "SELECT * FROM appointments WHERE doctor_id = ?"
             params = [doctor_id_int]
             
@@ -83,10 +79,8 @@ def get_doctor_analytics(doctor_id):
             cursor.execute(query, params)
             appointments = cursor.fetchall()
             
-            # Convert to list of dicts
             appointments_list = [dict(apt) for apt in appointments]
         
-        # Initialize analytics object
         analytics = {
             "total_appointments": len(appointments_list),
             "appointments_by_status": defaultdict(int),
@@ -109,7 +103,6 @@ def get_doctor_analytics(doctor_id):
             }
         }
 
-        # Process each appointment
         patient_first_visit = defaultdict(bool)
         
         for apt in appointments_list:
@@ -119,54 +112,43 @@ def get_doctor_analytics(doctor_id):
             apt_date = apt.get('date', '')
             patient_id = str(apt.get('patient_id', ''))
             
-            # Count by status
             analytics["appointments_by_status"][status] += 1
             
-            # Count by type
             analytics["appointments_by_type"][apt_type] += 1
             
-            # Revenue calculations (only for completed or confirmed appointments)
             if status in ['completed', 'confirmed']:
                 analytics["revenue"]["total"] += price
                 analytics["revenue"]["by_status"][status] += price
                 analytics["revenue"]["by_type"][apt_type] += price
             
-            # Time-based analytics
             if apt_date:
                 try:
                     date_obj = datetime.strptime(apt_date, '%Y-%m-%d').date()
                     
-                    # Daily
                     analytics["time_analytics"]["daily"][apt_date] += 1
                     
-                    # Weekly (week number)
                     week_number = date_obj.isocalendar()[1]
                     year = date_obj.year
                     week_key = f"{year}-W{week_number}"
                     analytics["time_analytics"]["weekly"][week_key] += 1
                     
-                    # Monthly
                     month_key = apt_date[:7]  # YYYY-MM
                     analytics["time_analytics"]["monthly"][month_key] += 1
                     
-                    # Yearly
                     year_key = str(date_obj.year)
                     analytics["time_analytics"]["yearly"][year_key] += 1
                     
                 except:
                     pass
             
-            # Patient analytics
             if patient_id:
                 analytics["patient_analytics"]["unique_patients"].add(patient_id)
                 
-                # Check if this is patient's first visit to this doctor
                 if not patient_first_visit[patient_id]:
                     patient_first_visit[patient_id] = True
                     
                     with get_db() as conn:
                         cursor = conn.cursor()
-                        # Check if there are any older appointments
                         cursor.execute('''
                             SELECT _id FROM appointments 
                             WHERE doctor_id = ? AND patient_id = ? AND date < ?
@@ -180,7 +162,6 @@ def get_doctor_analytics(doctor_id):
                         else:
                             analytics["patient_analytics"]["new_patients"] += 1
 
-        # Convert defaultdicts to regular dicts and sets to counts
         analytics["appointments_by_status"] = dict(analytics["appointments_by_status"])
         analytics["appointments_by_type"] = dict(analytics["appointments_by_type"])
         analytics["revenue"]["by_status"] = dict(analytics["revenue"]["by_status"])
@@ -191,13 +172,11 @@ def get_doctor_analytics(doctor_id):
         analytics["time_analytics"]["yearly"] = dict(analytics["time_analytics"]["yearly"])
         analytics["patient_analytics"]["unique_patients"] = len(analytics["patient_analytics"]["unique_patients"])
 
-        # Add completion rate
         total_non_cancelled = sum(count for status, count in analytics["appointments_by_status"].items() 
-                                 if status not in ['cancelled'])
+                                if status not in ['cancelled'])
         completed = analytics["appointments_by_status"].get('completed', 0)
         analytics["completion_rate"] = round((completed / total_non_cancelled * 100) if total_non_cancelled > 0 else 0, 2)
 
-        # Add average revenue per appointment
         analytics["average_revenue_per_appointment"] = round(
             analytics["revenue"]["total"] / analytics["total_appointments"] 
             if analytics["total_appointments"] > 0 else 0, 2
@@ -225,7 +204,6 @@ def get_doctor_appointments_count(doctor_id):
     try:
         doctor_id_int = int(doctor_id)
         
-        # Get optional status filter
         status = request.args.get('status')  # e.g., ?status=completed
         
         with get_db() as conn:
@@ -269,7 +247,6 @@ def get_doctor_appointment_stats(doctor_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Get counts by status with revenue
             cursor.execute('''
                 SELECT 
                     status,
@@ -282,7 +259,6 @@ def get_doctor_appointment_stats(doctor_id):
             
             stats = cursor.fetchall()
             
-            # Format the response
             result = {
                 "total": 0,
                 "by_status": {}
@@ -316,11 +292,9 @@ def get_manager_analytics():
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # إجمالي المواعيد
             cursor.execute("SELECT COUNT(*) as total FROM appointments")
             total_appointments = cursor.fetchone()["total"] or 0
             
-            # إجمالي الإيرادات (فقط المواعيد المكتملة أو المؤكدة)
             cursor.execute('''
                 SELECT COALESCE(SUM(price), 0) as total_revenue 
                 FROM appointments 
@@ -328,7 +302,6 @@ def get_manager_analytics():
             ''')
             total_revenue = float(cursor.fetchone()["total_revenue"] or 0)
             
-            # إحصائيات إضافية (اختياري)
             cursor.execute('''
                 SELECT 
                     COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
@@ -362,7 +335,6 @@ def get_all_doctor_appointments(doctor_id):
     try:
         doctor_id_int = int(doctor_id)
         
-        # Read query parameters
         page = int(request.args.get('page', 1))
         limit = int(request.args.get('limit', 20))
         skip = (page - 1) * limit
@@ -375,7 +347,6 @@ def get_all_doctor_appointments(doctor_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Build WHERE clause
             where_clause = "WHERE a.doctor_id = ?"
             params = [doctor_id_int]
             
@@ -399,13 +370,11 @@ def get_all_doctor_appointments(doctor_id):
                 where_clause += " AND a.date <= ?"
                 params.append(to_date)
             
-            # Query for total count
             count_query = f"SELECT COUNT(*) as total FROM appointments a {where_clause}"
             cursor.execute(count_query, params)
             total_result = cursor.fetchone()
             total = total_result["total"] if total_result else 0
             
-            # Main query with joins
             query = f'''
                 SELECT 
                     a._id, a.patient_id, a.date, a.start_time, a.end_time, 
@@ -423,7 +392,6 @@ def get_all_doctor_appointments(doctor_id):
             cursor.execute(query, params + [limit, skip])
             appointments = cursor.fetchall()
             
-            # Convert to list of dicts
             appointments_list = []
             for apt in appointments:
                 apt_dict = dict(apt)
@@ -463,13 +431,11 @@ def get_today_appointments(doctor_id):
         doctor_id_int = int(doctor_id)
         clinic_id_str = request.args.get('clinic_id')
         
-        # Today's date in YYYY-MM-DD format
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Build the query
             query = '''
                 SELECT 
                     a._id, a.patient_id, a.start_time, a.end_time, a.type, a.status,
@@ -497,7 +463,6 @@ def get_today_appointments(doctor_id):
             cursor.execute(query, params)
             appointments = cursor.fetchall()
             
-            # Convert to list of dicts
             appointments_list = []
             for apt in appointments:
                 apt_dict = dict(apt)
@@ -506,9 +471,7 @@ def get_today_appointments(doctor_id):
                 apt_dict["clinic_id"] = str(apt_dict["clinic_id"])
                 appointments_list.append(apt_dict)
             
-            # ────────────────────────────────────────────────
-            # Get exceptions for today
-            # ────────────────────────────────────────────────
+
             cursor.execute("SELECT clinic_affiliations FROM users WHERE _id = ? AND role = 'doctor'", (doctor_id_int,))
             result = cursor.fetchone()
             
@@ -521,7 +484,6 @@ def get_today_appointments(doctor_id):
                     for aff in affiliations:
                         clinic_id_val = str(aff.get("clinic_id"))
                         
-                        # If specific clinic requested, only return that one
                         if clinic_id_str and clinic_id_str != clinic_id_val:
                             continue
                         
@@ -537,7 +499,6 @@ def get_today_appointments(doctor_id):
                 except:
                     pass
             
-            # Format the response
             response = {
                 "appointments": appointments_list,
                 "date": today,

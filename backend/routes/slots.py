@@ -28,7 +28,6 @@ def get_available_slots(doctor_id):
             cursor.execute(query, params)
             slots = cursor.fetchall()
             
-            # Convert to list of dicts
             slots_list = []
             for slot in slots:
                 slot_dict = dict(slot)
@@ -58,14 +57,12 @@ def add_manual_available_slot(doctor_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Check if doctor is affiliated with this clinic
             cursor.execute("SELECT clinic_affiliations FROM users WHERE _id = ? AND role = 'doctor'", (doctor_id_int,))
             result = cursor.fetchone()
             
             if not result:
                 return jsonify({"error": "Doctor not found"}), 404
             
-            # Parse affiliations and check clinic
             is_affiliated = False
             if result["clinic_affiliations"]:
                 try:
@@ -80,7 +77,6 @@ def add_manual_available_slot(doctor_id):
             if not is_affiliated:
                 return jsonify({"error": "Doctor not affiliated with this clinic"}), 403
             
-            # Calculate duration
             try:
                 start_dt = datetime.strptime(data["start_time"], "%H:%M")
                 end_dt = datetime.strptime(data["end_time"], "%H:%M")
@@ -90,7 +86,6 @@ def add_manual_available_slot(doctor_id):
             except:
                 return jsonify({"error": "Invalid time format"}), 400
             
-            # Check for overlapping slots
             cursor.execute('''
                 SELECT _id FROM slots 
                 WHERE doctor_id = ? AND date = ? 
@@ -105,7 +100,6 @@ def add_manual_available_slot(doctor_id):
             
             now_iso = datetime.utcnow().isoformat()
             
-            # Insert the manual slot
             cursor.execute('''
                 INSERT INTO slots 
                 (doctor_id, clinic_id, date, start_time, end_time, duration_minutes, 
@@ -142,7 +136,6 @@ def update_available_slot(doctor_id, slot_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Check if slot exists and is available
             cursor.execute('''
                 SELECT _id FROM slots 
                 WHERE _id = ? AND doctor_id = ? AND status = 'available'
@@ -167,9 +160,7 @@ def update_available_slot(doctor_id, slot_id):
                 update_fields.append("price = ?")
                 params.append(float(data["price"]))
             
-            # If times changed, recalculate duration
             if "start_time" in data or "end_time" in data:
-                # Get current or new times
                 cursor.execute("SELECT start_time, end_time FROM slots WHERE _id = ?", (slot_id_int,))
                 current = cursor.fetchone()
                 
@@ -215,7 +206,6 @@ def delete_available_slot(doctor_id, slot_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Delete only if available and belongs to doctor
             cursor.execute('''
                 DELETE FROM slots 
                 WHERE _id = ? AND doctor_id = ? AND status = 'available'
@@ -254,7 +244,6 @@ def generate_slots_in_range(doctor_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # 1. Get doctor data
             cursor.execute("SELECT clinic_affiliations FROM users WHERE _id = ? AND role = 'doctor'", (doctor_id_int,))
             result = cursor.fetchone()
             
@@ -262,7 +251,6 @@ def generate_slots_in_range(doctor_id):
                 print("❌ Doctor not found")
                 return jsonify({"error": "Doctor not found"}), 404
 
-            # 2. Find affiliation
             affiliations = []
             if result["clinic_affiliations"]:
                 try:
@@ -289,14 +277,12 @@ def generate_slots_in_range(doctor_id):
 
             print("✅ Affiliation found, proceeding with slot generation")
 
-            # Get settings
             durations = affiliation.get("slot_duration", {})
             consultation_min = durations.get("consultation", 30)
             follow_up_min = durations.get("follow_up", 20)
             buffer_min = durations.get("buffer_time", 10)
             prices = affiliation.get("prices", {"consultation": 0, "follow_up": 0})
 
-            # 3. Parse times
             try:
                 start_dt = datetime.strptime(f"{date_str} {data['start_time']}", "%Y-%m-%d %H:%M")
                 end_dt = datetime.strptime(f"{date_str} {data['end_time']}", "%Y-%m-%d %H:%M")
@@ -307,7 +293,6 @@ def generate_slots_in_range(doctor_id):
             if start_dt >= end_dt:
                 return jsonify({"error": "End time must be after start time"}), 400
 
-            # 4. Generate slots
             slot_types = [
                 ("consultation", consultation_min, prices.get("consultation", 0)),
                 ("follow_up", follow_up_min, prices.get("follow_up", 0))
@@ -324,7 +309,6 @@ def generate_slots_in_range(doctor_id):
                     if slot_end > end_dt:
                         continue
 
-                    # Check for overlapping slots
                     cursor.execute('''
                         SELECT _id FROM slots 
                         WHERE doctor_id = ? AND date = ? 
@@ -338,7 +322,6 @@ def generate_slots_in_range(doctor_id):
                     overlapping = cursor.fetchone()
 
                     if not overlapping:
-                        # Insert new slot
                         cursor.execute('''
                             INSERT INTO slots 
                             (doctor_id, clinic_id, date, start_time, end_time, duration_minutes, 
@@ -354,12 +337,10 @@ def generate_slots_in_range(doctor_id):
                         created_slots.append(cursor.lastrowid)
                         print(f"✅ Created slot: {current_time.strftime('%H:%M')} - {slot_end.strftime('%H:%M')}")
 
-                    # Move to next time slot
                     current_time = slot_end + timedelta(minutes=buffer_min)
-                    break  # Exit for loop to start with first type at new time
+                    break  
 
                 else:
-                    # If for loop completed without break, add buffer
                     current_time += timedelta(minutes=buffer_min)
 
             conn.commit()
@@ -378,7 +359,6 @@ def generate_slots_in_range(doctor_id):
         return jsonify({"error": str(e)}), 500
 
 
-# ========== WEEKLY SCHEDULE MANAGEMENT ==========
 
 @slots_bp.route('/api/doctor/<int:doctor_id>/clinics/<int:clinic_id>/weekly-schedule', methods=['GET'])
 def get_weekly_schedule(doctor_id, clinic_id):
@@ -397,7 +377,6 @@ def get_weekly_schedule(doctor_id, clinic_id):
             if not result:
                 return jsonify({"error": "Doctor not found"}), 404
             
-            # Parse affiliations
             affiliations = []
             if result["clinic_affiliations"]:
                 try:
@@ -405,7 +384,6 @@ def get_weekly_schedule(doctor_id, clinic_id):
                 except:
                     affiliations = []
             
-            # Find the specific clinic affiliation
             affiliation = None
             for aff in affiliations:
                 if aff.get("clinic_id") == clinic_id_int:
@@ -461,14 +439,12 @@ def add_weekly_schedule_slot(doctor_id, clinic_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Get doctor's affiliations
             cursor.execute("SELECT clinic_affiliations FROM users WHERE _id = ? AND role = 'doctor'", (doctor_id_int,))
             result = cursor.fetchone()
             
             if not result:
                 return jsonify({"error": "Doctor not found"}), 404
 
-            # Parse affiliations
             affiliations = []
             if result["clinic_affiliations"]:
                 try:
@@ -476,7 +452,6 @@ def add_weekly_schedule_slot(doctor_id, clinic_id):
                 except:
                     affiliations = []
             
-            # Find the affiliation
             affiliation_index = None
             for i, aff in enumerate(affiliations):
                 if aff.get("clinic_id") == clinic_id_int:
@@ -486,7 +461,6 @@ def add_weekly_schedule_slot(doctor_id, clinic_id):
             if affiliation_index is None:
                 return jsonify({"error": "Doctor not affiliated with this clinic"}), 403
 
-            # Create new slot with UUID
             new_slot = {
                 "_id": str(uuid.uuid4()),
                 "day": data["day"],
@@ -495,13 +469,11 @@ def add_weekly_schedule_slot(doctor_id, clinic_id):
                 "created_at": datetime.utcnow().isoformat()
             }
 
-            # Add slot to weekly schedule
             if "weekly_schedule" not in affiliations[affiliation_index]:
                 affiliations[affiliation_index]["weekly_schedule"] = []
             
             affiliations[affiliation_index]["weekly_schedule"].append(new_slot)
             
-            # Save back to database
             cursor.execute(
                 "UPDATE users SET clinic_affiliations = ?, updated_at = ? WHERE _id = ?",
                 (json.dumps(affiliations), datetime.utcnow().isoformat(), doctor_id_int)
@@ -533,14 +505,12 @@ def update_weekly_schedule_slot(doctor_id, clinic_id, slot_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Get doctor's affiliations
             cursor.execute("SELECT clinic_affiliations FROM users WHERE _id = ?", (doctor_id_int,))
             result = cursor.fetchone()
             
             if not result:
                 return jsonify({"error": "Doctor not found"}), 404
 
-            # Parse affiliations
             affiliations = []
             if result["clinic_affiliations"]:
                 try:
@@ -548,7 +518,6 @@ def update_weekly_schedule_slot(doctor_id, clinic_id, slot_id):
                 except:
                     affiliations = []
             
-            # Find the affiliation
             affiliation_index = None
             for i, aff in enumerate(affiliations):
                 if aff.get("clinic_id") == clinic_id_int:
@@ -558,7 +527,6 @@ def update_weekly_schedule_slot(doctor_id, clinic_id, slot_id):
             if affiliation_index is None:
                 return jsonify({"error": "Doctor not affiliated with this clinic"}), 403
 
-            # Find and update the slot
             slot_found = False
             for slot in affiliations[affiliation_index].get("weekly_schedule", []):
                 if slot.get("_id") == slot_id:
@@ -575,7 +543,6 @@ def update_weekly_schedule_slot(doctor_id, clinic_id, slot_id):
             if not slot_found:
                 return jsonify({"error": "Slot not found"}), 404
             
-            # Save back to database
             cursor.execute(
                 "UPDATE users SET clinic_affiliations = ?, updated_at = ? WHERE _id = ?",
                 (json.dumps(affiliations), datetime.utcnow().isoformat(), doctor_id_int)
@@ -604,14 +571,12 @@ def delete_weekly_schedule_slot(doctor_id, clinic_id, slot_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Get doctor's affiliations
             cursor.execute("SELECT clinic_affiliations FROM users WHERE _id = ?", (doctor_id_int,))
             result = cursor.fetchone()
             
             if not result:
                 return jsonify({"error": "Doctor not found"}), 404
 
-            # Parse affiliations
             affiliations = []
             if result["clinic_affiliations"]:
                 try:
@@ -619,7 +584,6 @@ def delete_weekly_schedule_slot(doctor_id, clinic_id, slot_id):
                 except:
                     affiliations = []
             
-            # Find the affiliation
             affiliation_index = None
             for i, aff in enumerate(affiliations):
                 if aff.get("clinic_id") == clinic_id_int:
@@ -629,7 +593,6 @@ def delete_weekly_schedule_slot(doctor_id, clinic_id, slot_id):
             if affiliation_index is None:
                 return jsonify({"error": "Doctor not affiliated with this clinic"}), 403
 
-            # Remove the slot
             original_length = len(affiliations[affiliation_index].get("weekly_schedule", []))
             affiliations[affiliation_index]["weekly_schedule"] = [
                 slot for slot in affiliations[affiliation_index].get("weekly_schedule", [])
@@ -639,7 +602,6 @@ def delete_weekly_schedule_slot(doctor_id, clinic_id, slot_id):
             if len(affiliations[affiliation_index]["weekly_schedule"]) == original_length:
                 return jsonify({"error": "Slot not found"}), 404
             
-            # Save back to database
             cursor.execute(
                 "UPDATE users SET clinic_affiliations = ?, updated_at = ? WHERE _id = ?",
                 (json.dumps(affiliations), datetime.utcnow().isoformat(), doctor_id_int)
@@ -668,19 +630,16 @@ def affiliate_doctor_to_clinic(doctor_id, clinic_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Check if doctor exists
             cursor.execute("SELECT name, clinic_affiliations FROM users WHERE _id = ? AND role = 'doctor'", (doctor_id_int,))
             doctor = cursor.fetchone()
             if not doctor:
                 return jsonify({"error": "Doctor not found"}), 404
                 
-            # Check if clinic exists
             cursor.execute("SELECT name FROM clinics WHERE _id = ?", (clinic_id_int,))
             clinic = cursor.fetchone()
             if not clinic:
                 return jsonify({"error": "Clinic not found"}), 404
                 
-            # Parse existing affiliations
             affiliations = []
             if doctor["clinic_affiliations"]:
                 try:
@@ -688,15 +647,12 @@ def affiliate_doctor_to_clinic(doctor_id, clinic_id):
                 except:
                     affiliations = []
             
-            # Check if already affiliated
             for aff in affiliations:
                 if aff.get("clinic_id") == clinic_id_int:
                     return jsonify({"error": "Doctor already affiliated with this clinic"}), 400
             
-            # Get settings from request or use defaults
             data = request.get_json() or {}
             
-            # Create new affiliation
             now_iso = datetime.utcnow().isoformat()
             new_affiliation = {
                 "clinic_id": clinic_id_int,
@@ -715,10 +671,8 @@ def affiliate_doctor_to_clinic(doctor_id, clinic_id):
                 "exceptions": data.get("exceptions", [])
             }
             
-            # Add affiliation
             affiliations.append(new_affiliation)
             
-            # Save back to database
             cursor.execute(
                 "UPDATE users SET clinic_affiliations = ?, updated_at = ? WHERE _id = ?",
                 (json.dumps(affiliations), now_iso, doctor_id_int)

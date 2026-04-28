@@ -51,7 +51,7 @@ def add_clinic():
             "phone": data.get("phone", "").strip(),
             "image": data.get("image", "https://images.unsplash.com/photo-1576765607925-9f0bfae3a1c6"),
             "rating": float(data.get("rating", 0.0)),
-            "departments": json.dumps(data.get("departments", [])),  # Store as JSON string
+            "departments": json.dumps(data.get("departments", [])),  
             "created_at": now_iso,
             "updated_at": now_iso,
         }
@@ -107,7 +107,6 @@ def update_clinic(id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Build UPDATE query
             set_clause = ', '.join([f"{key} = ?" for key in update_fields.keys()])
             update_values = list(update_fields.values())
             update_values.append(clinic_id)
@@ -135,18 +134,14 @@ def delete_clinic(id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # First, check if clinic exists
             cursor.execute("SELECT _id FROM clinics WHERE _id = ?", (clinic_id,))
             if not cursor.fetchone():
                 return jsonify({"error": "Clinic not found"}), 404
             
-            # Delete related appointments first (foreign key constraint)
             cursor.execute("DELETE FROM appointments WHERE clinic_id = ?", (clinic_id,))
             
-            # Delete related slots
             cursor.execute("DELETE FROM slots WHERE clinic_id = ?", (clinic_id,))
             
-            # Delete the clinic
             cursor.execute("DELETE FROM clinics WHERE _id = ?", (clinic_id,))
 
         return jsonify({"message": "Clinic deleted successfully"}), 200
@@ -178,11 +173,9 @@ def get_clinic_by_id(clinic_id):
             if not clinic:
                 return jsonify({"error": "Clinic not found"}), 404
 
-            # Convert to dict and process
             clinic_dict = dict(clinic)
             clinic_dict["id"] = clinic_dict.pop("_id")
             
-            # Convert departments from JSON string to list
             if clinic_dict.get("departments"):
                 try:
                     clinic_dict["departments"] = json.loads(clinic_dict["departments"])

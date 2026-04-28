@@ -19,7 +19,6 @@ def get_all_doctors():
                 doc_dict = dict(doc)
                 doc_dict["id"] = doc_dict.pop("_id")
                 
-                # تحويل JSON strings إلى lists/dicts
                 if doc_dict.get("clinic_affiliations"):
                     try:
                         doc_dict["clinic_affiliations"] = json.loads(doc_dict["clinic_affiliations"])
@@ -28,7 +27,6 @@ def get_all_doctors():
                 else:
                     doc_dict["clinic_affiliations"] = []
                 
-                # تحويل boolean
                 doc_dict["isSuspended"] = bool(doc_dict.get("isSuspended", 0))
                 
                 cleaned.append(doc_dict)
@@ -47,7 +45,6 @@ def add_doctor():
         if not data:
             return jsonify({"error": "No JSON data received"}), 400
 
-        # الحقول المطلوبة الأساسية
         required_fields = ["name", "email", "password", "specialty"]
         missing = [f for f in required_fields if f not in data or not data[f]]
         if missing:
@@ -56,12 +53,10 @@ def add_doctor():
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # التحقق من تكرار الإيميل
             cursor.execute("SELECT _id FROM users WHERE email = ?", (data["email"],))
             if cursor.fetchone():
                 return jsonify({"error": "Email already exists"}), 409
 
-            # تحضير بيانات الدكتور الأساسية
             hashed_password = generate_password_hash(data["password"])
             now_iso = datetime.utcnow().isoformat()
             
@@ -77,23 +72,20 @@ def add_doctor():
                 "rating_count": 0,
                 "created_at": now_iso,
                 "updated_at": now_iso,
-                "clinic_affiliations": "[]"  # JSON string
+                "clinic_affiliations": "[]"  
             }
 
-            # إضافة الارتباط بالعيادة (إذا تم إرسال clinic_id)
             clinic_id = data.get("clinic_id")
             if clinic_id:
                 try:
-                    clinic_id_int = int(clinic_id)  # SQLite uses INTEGER
+                    clinic_id_int = int(clinic_id)  
                 except:
                     return jsonify({"error": "Invalid clinic_id format"}), 400
 
-                # التحقق من وجود العيادة
                 cursor.execute("SELECT _id FROM clinics WHERE _id = ?", (clinic_id_int,))
                 if not cursor.fetchone():
                     return jsonify({"error": "Clinic not found"}), 404
 
-                # إعدادات الـ affiliation الجديدة
                 slot_duration_input = data.get("slot_duration", {})
                 prices_input = data.get("prices", {})
 
@@ -114,11 +106,9 @@ def add_doctor():
                     "exceptions": []
                 }
                 
-                # تحويل إلى JSON string
                 affiliations_list = [affiliation]
                 new_doctor["clinic_affiliations"] = json.dumps(affiliations_list)
 
-            # إدراج الدكتور في قاعدة البيانات
             columns = ', '.join(new_doctor.keys())
             placeholders = ', '.join(['?'] * len(new_doctor))
             query = f"INSERT INTO users ({columns}) VALUES ({placeholders})"
@@ -155,7 +145,6 @@ def get_doctor_by_id(doctor_id):
             doctor_dict = dict(doctor)
             doctor_dict["id"] = doctor_dict.pop("_id")
             
-            # تحويل JSON strings
             if doctor_dict.get("clinic_affiliations"):
                 try:
                     doctor_dict["clinic_affiliations"] = json.loads(doctor_dict["clinic_affiliations"])
@@ -166,7 +155,6 @@ def get_doctor_by_id(doctor_id):
             
             doctor_dict["isSuspended"] = bool(doctor_dict.get("isSuspended", 0))
             
-            # تحويل التواريخ
             if doctor_dict.get("created_at"):
                 doctor_dict["created_at"] = doctor_dict["created_at"]
             if doctor_dict.get("updated_at"):
@@ -187,14 +175,13 @@ def update_doctor(id):
         print("Received PUT data:", data)
 
         try:
-            doc_id = int(id)  # SQLite uses INTEGER
+            doc_id = int(id)  
         except Exception:
             return jsonify({"error": "Invalid doctor ID format"}), 400
 
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # التحقق من وجود الدكتور
             cursor.execute("SELECT * FROM users WHERE _id = ? AND role = 'doctor'", (doc_id,))
             doctor = cursor.fetchone()
             
@@ -211,9 +198,7 @@ def update_doctor(id):
             if "image" in data and data["image"]:
                 update_fields["image"] = data["image"]
 
-            # تحديث إعدادات العيادة (أول affiliation فقط)
             if "slot_duration" in data or "prices" in data:
-                # جلب الـ affiliations الحالية
                 cursor.execute("SELECT clinic_affiliations FROM users WHERE _id = ?", (doc_id,))
                 result = cursor.fetchone()
                 affiliations = []
@@ -225,7 +210,6 @@ def update_doctor(id):
                         affiliations = []
                 
                 if affiliations:
-                    # تحديث أول affiliation
                     if "slot_duration" in data:
                         affiliations[0]["slot_duration"] = data["slot_duration"]
                     if "prices" in data:
@@ -236,7 +220,6 @@ def update_doctor(id):
             if update_fields:
                 update_fields["updated_at"] = datetime.utcnow().isoformat()
                 
-                # بناء query التحديث
                 set_clause = ', '.join([f"{key} = ?" for key in update_fields.keys()])
                 update_values = list(update_fields.values())
                 update_values.append(doc_id)
@@ -248,7 +231,6 @@ def update_doctor(id):
                 if cursor.rowcount == 0:
                     print("Warning: No fields were changed – data may be identical")
 
-            # جلب البيانات المحدثة
             cursor.execute("SELECT * FROM users WHERE _id = ?", (doc_id,))
             updated = cursor.fetchone()
             
@@ -256,11 +238,9 @@ def update_doctor(id):
                 updated_dict = dict(updated)
                 updated_dict["_id"] = updated_dict.pop("_id")
                 
-                # تحويل JSON strings
                 if updated_dict.get("clinic_affiliations"):
                     try:
                         updated_dict["clinic_affiliations"] = json.loads(updated_dict["clinic_affiliations"])
-                        # تحويل clinic_id من int إلى str للتأكد (اختياري)
                         for aff in updated_dict["clinic_affiliations"]:
                             if "clinic_id" in aff:
                                 aff["clinic_id"] = str(aff["clinic_id"])
@@ -283,28 +263,23 @@ def update_doctor(id):
 def delete_doctor(id):
     try:
         try:
-            doc_id = int(id)  # SQLite uses INTEGER
+            doc_id = int(id)  
         except Exception:
             return jsonify({"error": "Invalid doctor ID format"}), 400
 
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # البحث عن الدكتور والتأكد من وجوده
             cursor.execute("SELECT _id FROM users WHERE _id = ? AND role = 'doctor'", (doc_id,))
             if not cursor.fetchone():
                 return jsonify({"error": "Doctor not found"}), 404
 
-            # حذف جميع المواعيد المرتبطة بالدكتور
             cursor.execute("DELETE FROM appointments WHERE doctor_id = ?", (doc_id,))
             
-            # حذف جميع الـ slots المرتبطة بالدكتور
             cursor.execute("DELETE FROM slots WHERE doctor_id = ?", (doc_id,))
             
-            # حذف جميع التقييمات المرتبطة بالدكتور
             cursor.execute("DELETE FROM reviews WHERE doctor_id = ?", (doc_id,))
             
-            # حذف الدكتور نفسه
             cursor.execute("DELETE FROM users WHERE _id = ?", (doc_id,))
             
             if cursor.rowcount == 0:
@@ -331,30 +306,24 @@ def get_doctor_clinics(doctor_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Get doctor's clinic affiliations
             cursor.execute("SELECT clinic_affiliations FROM users WHERE _id = ? AND role = 'doctor'", (doctor_id_int,))
             row = cursor.fetchone()
             
             if not row:
                 return jsonify({"error": "Doctor not found"}), 404
             
-            # تحويل الـ Row إلى dict للوصول للبيانات بأمان
             doctor_data = dict(row)
             
-            # Parse affiliations from JSON
             affiliations = []
             if doctor_data.get("clinic_affiliations"):
                 try:
-                    # تأكد من عمل import json في أول الملف
                     affiliations = json.loads(doctor_data["clinic_affiliations"])
                 except Exception as e:
                     print(f"JSON Parse error: {e}")
                     affiliations = []
             
-            # Extract active clinic IDs
             active_clinic_ids = []
             for aff in affiliations:
-                # الـ aff هنا أصلاً dict لأن json.loads حولته
                 if aff.get("is_active", True):
                     clinic_id = aff.get("clinic_id")
                     if clinic_id:
@@ -363,7 +332,6 @@ def get_doctor_clinics(doctor_id):
             if not active_clinic_ids:
                 return jsonify([]), 200
             
-            # Get clinic details
             placeholders = ','.join(['?'] * len(active_clinic_ids))
             cursor.execute(f'''
                 SELECT _id, name, location, phone, image, rating 
@@ -375,7 +343,6 @@ def get_doctor_clinics(doctor_id):
             
             final_result = []
             for c_row in clinics_rows:
-                # تحويل كل صف لـ dict عشان نستخدم .get()
                 c_dict = dict(c_row)
                 final_result.append({
                     "id": c_dict.get("_id"),
@@ -393,7 +360,7 @@ def get_doctor_clinics(doctor_id):
     except Exception as e:
         print(f"Error fetching doctor clinics: {str(e)}")
         import traceback
-        traceback.print_exc() # عشان تشوف الخطأ بالتفصيل في الـ terminal
+        traceback.print_exc() 
         return jsonify({"error": "Server error"}), 500
     
 @doctors_bp.route('/api/doctor/<int:doctor_id>/quick-stats', methods=['GET'])
@@ -405,27 +372,23 @@ def get_doctor_quick_stats(doctor_id):
         with get_db() as conn:
             cursor = conn.cursor()
             
-            # Today's appointments count (excluding cancelled/rejected)
             cursor.execute('''
                 SELECT COUNT(*) as count FROM appointments 
                 WHERE doctor_id = ? AND date = ? AND status NOT IN ('cancelled', 'rejected')
             ''', (doctor_id_int, today))
             today_count = cursor.fetchone()["count"] or 0
             
-            # Pending appointments count
             cursor.execute('''
                 SELECT COUNT(*) as count FROM appointments 
                 WHERE doctor_id = ? AND status = 'pending'
             ''', (doctor_id_int,))
             pending_count = cursor.fetchone()["count"] or 0
             
-            # Doctor's rating
             cursor.execute("SELECT rating, rating_count, clinic_affiliations FROM users WHERE _id = ?", (doctor_id_int,))
             doctor = cursor.fetchone()
             
             avg_rating = doctor["rating"] if doctor else 0
             
-            # Number of clinics (parse JSON)
             clinics_count = 0
             if doctor and doctor["clinic_affiliations"]:
                 try:

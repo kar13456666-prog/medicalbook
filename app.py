@@ -4,13 +4,11 @@ from database import init_database
 import traceback
 import logging
 
-# استيراد الـ Blueprints
 from routes import (
     auth_bp, doctors_bp, clinics_bp, appointments_bp,
     reviews_bp, ai_bp, analytics_bp, slots_bp
 )
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -19,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# ========== CORS Configuration ==========
 CORS(app, resources={
     r"/api/*": {
         "origins": ["http://localhost:5173", "http://localhost:3000", "http://localhost:4200"],
@@ -36,7 +33,6 @@ CORS(app, resources={
     }
 })
 
-# ========== CORS Middleware ==========
 @app.before_request
 def handle_options_request():
     """Handle CORS preflight requests"""
@@ -64,7 +60,6 @@ def add_cors_headers(response):
     
     return response
 
-# ========== Global Error Handlers ==========
 
 @app.errorhandler(400)
 def bad_request_error(e):
@@ -137,7 +132,6 @@ def internal_server_error(e):
         "message": "An unexpected error occurred. Please try again later."
     }), 500
 
-# ========== Global Exception Handler ==========
 @app.errorhandler(Exception)
 def handle_exception(e):
     """Handle all uncaught exceptions"""
@@ -150,7 +144,6 @@ def handle_exception(e):
         "message": "An unexpected error occurred. Please try again later."
     }), 500
 
-# ========== Request Logging Middleware ==========
 @app.before_request
 def log_request_info():
     """Log incoming request details for debugging"""
@@ -165,7 +158,6 @@ def log_response_info(response):
     logger.info(f"📤 {request.method} {request.path} - Status: {response.status_code}")
     return response
 
-# ========== Register Blueprints ==========
 app.register_blueprint(auth_bp)
 app.register_blueprint(doctors_bp)
 app.register_blueprint(clinics_bp)
@@ -177,7 +169,6 @@ app.register_blueprint(slots_bp)
 
 logger.info("✅ All blueprints registered successfully")
 
-# ========== Health Check Endpoints ==========
 @app.route('/health', methods=['GET'])
 def health_check():
     """Basic health check endpoint"""
@@ -220,7 +211,6 @@ def detailed_health_check():
             "database": {"connected": False}
         }), 500
 
-# ========== API Info Endpoint ==========
 @app.route('/api/info', methods=['GET'])
 def api_info():
     """Get API information and available endpoints"""
@@ -285,7 +275,6 @@ def api_info():
         "endpoints": endpoints
     }), 200
 
-# ========== Initialize Database ==========
 try:
     init_database()
     logger.info("✅ Database initialized successfully")
@@ -293,7 +282,6 @@ except Exception as e:
     logger.error(f"❌ Database initialization failed: {str(e)}")
     traceback.print_exc()
 
-# ========== Run App ==========
 if __name__ == '__main__':
     logger.info("🚀 Starting Medical Assistant API Server...")
     logger.info("📍 Running on: http://localhost:5000")
