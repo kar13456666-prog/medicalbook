@@ -1,17 +1,18 @@
+# Use the official Python image
 FROM python:3.10-slim
 
+# Set the working directory
 WORKDIR /app
 
-# تثبيت التبعيات الضرورية لـ ChromaDB
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt .
+# Copy the requirements file and install Python dependencies
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the rest of your backend code (app.py, database.py, routes, etc.)
 COPY . .
 
-EXPOSE 5000
+# Expose the port your backend runs on (matches your docker-compose.yml)
+EXPOSE 8000
 
+# Command to run your Python app
 CMD ["python", "app.py"]

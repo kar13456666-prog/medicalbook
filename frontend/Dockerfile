@@ -1,13 +1,18 @@
-# المرحلة الأولى: بناء التطبيق
-FROM node:18-alpine AS build
+# Use the official lightweight Node.js image
+FROM node:18-alpine
+
+# Set the working directory inside the container
 WORKDIR /app
+
+# Copy package.json and install dependencies
 COPY package*.json ./
 RUN npm install
-COPY . .
-RUN npm run build
 
-# المرحلة الثانية: تشغيل التطبيق على Nginx
-FROM nginx:stable-alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# Copy the rest of your frontend code
+COPY . .
+
+# Expose the port your frontend runs on
+EXPOSE 3000
+
+# Command to start your React app
+CMD ["npm", "run", "dev", "--", "--host"]

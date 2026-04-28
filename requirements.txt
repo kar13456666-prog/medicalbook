@@ -1,0 +1,8 @@
+Flask>=2.3.0
+flask-cors>=4.0.0
+werkzeug>=2.3.0
+sqlite3  # ده جوه Python أصلاً مش محتاجه
+python-dotenv>=1.0.0
+requests>=2.31.0
+chromadb>=0.4.0
+deep-translator>=1.11.0

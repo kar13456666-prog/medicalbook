@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: my_backend
+    ports:
+      - "8000:8000"
+    restart: always  # <-- Phase 10: High Availability
+    environment:
+      - NODE_ENV=production
+      # - MONGODB_URI=your_database_url_here (Add your environment variables here later)
+
+  frontend:
+    build: ./frontend
+    container_name: my_frontend
+    ports:
+      - "3000:3000"
+    restart: always  # <-- Phase 10: High Availability
+    depends_on:
+      - backend      # Ensures backend starts before frontend
+    environment:
+      - NODE_ENV=production
